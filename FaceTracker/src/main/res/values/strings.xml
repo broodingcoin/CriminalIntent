@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ok">OK</string>
+    <string name="permission_camera_rationale">Access to the camera is needed for detection</string>
+    <string name="no_camera_permission">This application cannot run because it does not have the camera permission.  The application will now exit.</string>
+    <string name="low_storage_error">Face detector dependencies cannot be downloaded due to low device storage</string>
+    <!--TODO: 2. add string resource-->
+    <string name="capture_image">Capture</string>
+    <string name="captured">Successfully Taking Images!</string>
+    <string name="face_counts">Num of Face is %1$s</string>
+    <string name="permission_storage_rationale">Access to the storage is needed for saving photos.</string>
+    <string name="no_storage_permission">Can not save photos because storage permission is not granted.</string>
+    <string name="disable_capture">I should disable capture if I have two buttons.</string>
+</resources>
