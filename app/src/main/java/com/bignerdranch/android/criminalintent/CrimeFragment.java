@@ -1,6 +1,8 @@
 package com.bignerdranch.android.criminalintent;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -11,6 +13,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
+import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.content.FileProvider;
@@ -30,7 +34,6 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.content.Context;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,16 +41,15 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.lang.reflect.Type;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import static android.content.ContentValues.TAG;
 import static android.widget.CompoundButton.*;
 
 public class CrimeFragment extends Fragment {
@@ -65,6 +67,8 @@ public class CrimeFragment extends Fragment {
     private static final int REQUEST_CONTACT = 1;
     private static final int REQUEST_PHOTO = 2;
     private static final int REQUEST_PHOTO_FACES = 3;
+    private static final int RC_HANDLE_CAMERA_PERM = 2;
+    private static final int RC_HANDLE_STORAGE_PERM = 3;
 
     private Crime mCrime;
     private ArrayList<File> mPhotoFiles;
@@ -110,6 +114,7 @@ public class CrimeFragment extends Fragment {
                              Bundle savedInstanceState) {
 
         View v = inflater.inflate(R.layout.fragment_crime, container, false);
+        requestStoragePermission();
 
         gridButton = (ImageButton) v.findViewById(R.id.gridBtn);
 
@@ -253,11 +258,6 @@ public class CrimeFragment extends Fragment {
 
                     } else {
 
-                        try {
-                            mPhotoFile = createImageFile();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
 
                         Uri uri = FileProvider.getUriForFile(getActivity(),
                                 "com.bignerdranch.android.criminalintent.fileprovider",
@@ -285,6 +285,51 @@ public class CrimeFragment extends Fragment {
             }
         });
         return v;
+    }
+
+    private void requestCameraPermission() {
+        Log.w(TAG, "Camera permission is not granted. Requesting permission");
+
+        final String[] permissions = new String[]{Manifest.permission.CAMERA};
+
+        if (!ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
+                Manifest.permission.CAMERA)) {
+            ActivityCompat.requestPermissions(getActivity(), permissions, RC_HANDLE_CAMERA_PERM);
+            return;
+        }
+
+        final Activity thisActivity = getActivity();
+
+        View.OnClickListener listener = new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ActivityCompat.requestPermissions(thisActivity, permissions,
+                        RC_HANDLE_CAMERA_PERM);
+            }
+        };
+    }
+
+    //TODO: request storage permission
+    private void requestStoragePermission() {
+        Log.w(TAG, "Storage permission is not granted. Requesting permission");
+
+        final String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+        if (!ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
+                Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            ActivityCompat.requestPermissions(getActivity(), permissions, RC_HANDLE_STORAGE_PERM);
+            return;
+        }
+
+        final Activity thisActivity = getActivity();
+
+        View.OnClickListener listener = new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ActivityCompat.requestPermissions(thisActivity, permissions,
+                        RC_HANDLE_STORAGE_PERM);
+            }
+        };
     }
 
     @Override
@@ -392,13 +437,14 @@ public class CrimeFragment extends Fragment {
 
     private void updatePhotoView() {
 
+        Bitmap bitmap = null;
         mPhotoFiles.add(mPhotoFile);
         index = mPhotoFiles.size();
 
         if (mPhotoFile == null || !mPhotoFile.exists()) {
             mPhotoView.setImageDrawable(null);
         } else if(mPhotoFile != null){
-            Bitmap bitmap = PictureUtils.getScaledBitmap(
+            bitmap = PictureUtils.getScaledBitmap(
                     mPhotoFile.getPath(), getActivity());
             mPhotoView.setImageBitmap(bitmap);
         }
@@ -411,36 +457,45 @@ public class CrimeFragment extends Fragment {
             gridButton.setClickable(true);
             gridButton.setVisibility(VISIBLE);
         }
-        galleryAddPic();
+
+        createImageFile(bitmap);
         mPhotoFile = CrimeLab.get(getActivity()).getPhotoFile(mCrime, index);
     }
 
-    private File createImageFile() throws IOException {
+    private void createImageFile(Bitmap bitmap) {
         // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = getContext().getFilesDir();
-        File image = File.createTempFile(
-                imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
+        //String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        //String imageFileName = "JPEG_" + timeStamp + "_";
+        FileOutputStream oStream = null;
+        File location = Environment.getExternalStorageDirectory();
+        File storageDir = new File(location.getAbsolutePath() + "/newFile");
+        storageDir.mkdirs();
+        String name = String.format("%d.jpg", System.currentTimeMillis());
+        File image = new File(storageDir, name);
+        /*File image = File.createTempFile(
+                imageFileName,  /* prefix
+                ".jpg",         /* suffix
+                storageDir      /* directory
+        );*/
+        try {
+            oStream = new FileOutputStream(image);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 105, oStream);
+            oStream.flush();
+            oStream.close();
+        } catch (Exception e) {
 
-        // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = image.getAbsolutePath();
-        return image;
+        }
+
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+        values.put(MediaStore.Images.Media.DATA, image.getAbsolutePath());
+        getContext().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+        Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        intent.setData(Uri.fromFile(mPhotoFile));
+        getContext().sendBroadcast(intent);
     }
-
-    private void galleryAddPic() {
-        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        File f = new File(mCurrentPhotoPath);
-        Uri contentUri = Uri.fromFile(f);
-        mediaScanIntent.setData(contentUri);
-        getContext().sendBroadcast(mediaScanIntent);
-        Toast.makeText(getActivity(), mCurrentPhotoPath,
-                Toast.LENGTH_LONG).show();
-    }
-
 
     private class ImageHolder extends RecyclerView.ViewHolder
             implements View.OnClickListener {
