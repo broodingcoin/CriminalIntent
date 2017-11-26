@@ -11,6 +11,7 @@ public class Crime {
     private boolean mSolved;
     private String mSuspect;
     private String jList;
+    private int numFaces;
 
     public Crime() {
         this(UUID.randomUUID());
@@ -66,5 +67,13 @@ public class Crime {
 
     public String getJlist() {
         return jList;
+    }
+
+    public int getNumFaces() {
+        return numFaces;
+    }
+
+    public void setNumFaces(int numFaces) {
+        this.numFaces = numFaces;
     }
 }

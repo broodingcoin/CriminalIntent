@@ -108,6 +108,7 @@ public class CrimeLab {
         values.put(SOLVED, crime.isSolved() ? 1 : 0);
         values.put(CrimeTable.Cols.SUSPECT, crime.getSuspect());
         values.put(JLIST, crime.getJlist());
+        values.put(NUMFACES, crime.getNumFaces());
 
         return values;
     }

@@ -17,10 +17,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    lintOptions {
+        abortOnError false
+    }
 }
 
 dependencies {
-    implementation project(':FaceTracker')
     compile fileTree(include: ['*.jar'], dir: 'libs')
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
@@ -31,4 +33,8 @@ dependencies {
     compile 'com.android.support:support-v4:25.3.0'
     compile 'com.android.support:recyclerview-v7:25.3.0'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    //compile 'com.android.support:support-v4:25.0.0'
+    compile 'com.android.support:design:25.3.0'
+//    compile 'com.google.android.gms:play-services:9.8.0'
+    compile 'com.google.android.gms:play-services-vision:9.6.0'
 }

@@ -31,6 +31,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.content.Context;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
@@ -57,24 +58,32 @@ public class CrimeFragment extends Fragment {
 
     private static final String ARG_CRIME_ID = "crime_id";
     private static final String DIALOG_DATE = "DialogDate";
+    public static final String RETURN_FACES_DETECTED = "numFaces";
+    public static final String FILE_PATH = "filePath";
 
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
     private static final int REQUEST_PHOTO = 2;
+    private static final int REQUEST_PHOTO_FACES = 3;
 
     private Crime mCrime;
     private ArrayList<File> mPhotoFiles;
     private File mPhotoFile;
     private String mCurrentPhotoPath;
     private EditText mTitleField;
+    private TextView newText;
     private Button mDateButton;
     private CheckBox mSolvedCheckbox;
+    private CheckBox mFaceTracker;
     private Button mReportButton;
     private Button mSuspectButton;
     private ImageButton mPhotoButton;
     private ImageView mPhotoView;
     private String json;
     private int index = 0;
+    private int numFaces;
+    private int numFaces2;
+    private boolean wantFace;
 
     public static CrimeFragment newInstance(UUID crimeId) {
         Bundle args = new Bundle();
@@ -91,6 +100,8 @@ public class CrimeFragment extends Fragment {
         UUID crimeId = (UUID) getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getActivity()).getCrime(crimeId);
         index = 0;
+        numFaces = 0;
+        wantFace = false;
         mPhotoFile = CrimeLab.get(getActivity()).getPhotoFile(mCrime, index);
     }
 
@@ -108,6 +119,7 @@ public class CrimeFragment extends Fragment {
         Gson gson = new Gson();
         Type listType = new TypeToken<ArrayList<File>>(){}.getType();
         mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
+        newText = (TextView) v.findViewById(R.id.faceCount);
 
         if((gson.fromJson(mCrime.getJlist(), listType)) != null && !((ArrayList) gson.fromJson(mCrime.getJlist(), listType)).isEmpty()) {
             mPhotoFiles.addAll((ArrayList) gson.fromJson(mCrime.getJlist(), listType));
@@ -134,8 +146,6 @@ public class CrimeFragment extends Fragment {
                 .findViewById(R.id.new_recycler);
         mCrimeRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.HORIZONTAL, false));
         mCrimeRecyclerView.setAdapter(mAdaptor);
-
-        //mAdaptor = new ImageAdaptor();
 
         mTitleField = (EditText) v.findViewById(R.id.crime_title);
         mTitleField.setText(mCrime.getTitle());
@@ -180,6 +190,16 @@ public class CrimeFragment extends Fragment {
             }
         });
 
+        mFaceTracker = (CheckBox) v.findViewById(R.id.faceNum);
+        mFaceTracker.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView,
+                                         boolean isChecked) {
+                wantFace = isChecked;
+                newText.setText("number of faces is: " + numFaces);
+            }
+        });
+
         mReportButton = (Button) v.findViewById(R.id.crime_report);
         mReportButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -215,36 +235,47 @@ public class CrimeFragment extends Fragment {
         final Intent captureImage = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         boolean canTakePhoto = mPhotoFile != null &&
                 captureImage.resolveActivity(packageManager) != null;
+
+        final Intent captureImage2 = new Intent(getContext(), FaceTrackerActivity.class);
+        //boolean canTakePhoto2 = mPhotoFile != null &&
+        //       captureImage2.resolveActivity(packageManager) != null;
+
         mPhotoButton.setEnabled(canTakePhoto);
-
         mPhotoButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
 
-                try {
-                    mPhotoFile = createImageFile();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                @Override
+                public void onClick (View v){
+
+
+                    if(wantFace) {
+
+                        startActivityForResult(captureImage2, REQUEST_PHOTO_FACES);
+
+                    } else {
+
+                        try {
+                            mPhotoFile = createImageFile();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        Uri uri = FileProvider.getUriForFile(getActivity(),
+                                "com.bignerdranch.android.criminalintent.fileprovider",
+                                mPhotoFile);
+
+                        captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+
+                        List<ResolveInfo> cameraActivities = getActivity()
+                                .getPackageManager().queryIntentActivities(captureImage,
+                                        PackageManager.MATCH_DEFAULT_ONLY);
+
+                        for (ResolveInfo activity : cameraActivities) {
+                            getActivity().grantUriPermission(activity.activityInfo.packageName,
+                                    uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                        }
+                        startActivityForResult(captureImage, REQUEST_PHOTO);
+                    }
                 }
-
-                Uri uri = FileProvider.getUriForFile(getActivity(),
-                        "com.bignerdranch.android.criminalintent.fileprovider",
-                        mPhotoFile);
-
-                captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
-
-                List<ResolveInfo> cameraActivities = getActivity()
-                        .getPackageManager().queryIntentActivities(captureImage,
-                                PackageManager.MATCH_DEFAULT_ONLY);
-
-                for (ResolveInfo activity : cameraActivities) {
-                    getActivity().grantUriPermission(activity.activityInfo.packageName,
-                            uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                }
-
-                startActivityForResult(captureImage, REQUEST_PHOTO);
-            }
-
         });
 
         gridButton.setOnClickListener(new View.OnClickListener() {
@@ -270,6 +301,7 @@ public class CrimeFragment extends Fragment {
         Gson gson = new Gson();
         String json = gson.toJson(mPhotoFiles);
         mCrime.setJlist(json);
+        mCrime.setNumFaces(mCrime.getNumFaces() + numFaces);
         CrimeLab.get(getActivity()).updateCrime(mCrime);
     }
 
@@ -279,6 +311,19 @@ public class CrimeFragment extends Fragment {
             return;
         }
 
+        if(requestCode == REQUEST_PHOTO_FACES) {
+
+            numFaces = data.getIntExtra(RETURN_FACES_DETECTED, numFaces2) + numFaces;
+            String filePath = data.getStringExtra(FILE_PATH);
+            mCurrentPhotoPath = filePath;
+            mPhotoFile = new File(filePath);
+
+            newText.setText("number of faces is: " + numFaces);
+            Toast.makeText(getActivity(), Integer.toString(numFaces),
+                    Toast.LENGTH_LONG).show();
+
+            updatePhotoView();
+        }
         if (requestCode == REQUEST_DATE) {
             Date date = (Date) data
                     .getSerializableExtra(DatePickerFragment.EXTRA_DATE);
@@ -406,6 +451,9 @@ public class CrimeFragment extends Fragment {
         public ImageHolder(View v) {
             super(v);
             ImageView = (ImageView) itemView.findViewById(R.id.horizontal_item_view_image);
+            /*v.setOnClickListener(new v.OnClickListener() {
+
+                                 });*/
         }
 
         @Override
